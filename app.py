@@ -128,26 +128,6 @@ def main():
                     index=index+1
             return graph,graph_names,indexToName,index,start_node,end_node,unvisited_graph_names
 
-        def heuristic(node1,node2):
-            # Implement your heuristic function here, which estimates the cost from the current node to the goal node.
-            # You can use Euclidean distance, for example.
-            lat1 = math.radians(node1.x)
-            lon1 = math.radians(node1.y)
-            lat2 = math.radians(graph[node2].x)
-            lon2 = math.radians(graph[node2].y)
-
-            # Radius of the Earth in kilometers
-            radius = 6371
-
-            # Haversine formula
-            dlat = lat2 - lat1
-            dlon = lon2 - lon1
-            a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
-            c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-            distance = radius * c
-
-            return distance
-
 
         def build_graph_with_routes(graph, routes):
             for route in routes:
@@ -175,13 +155,6 @@ def main():
             speed=80/(node.traffic+node.road_quality)
             return distance/speed+h/40
 
-        def calculate_Normalized_cost(distance,node,h):
-
-            normalised_distance= 0 + ((distance - min_value) * (5 - 0) / (max_value - min_value))
-            normalized_h= 0 + ((h - min_heur) * (5 - 0) / (max_heur - min_heur))
-            normalised_heuristic=1*normalized_h+1.5*node.road_quality+1.5*node.traffic+3*node.waste_level
-            return 5*normalised_distance+normalised_heuristic
-
         def calculate_cost(node1, node2):
         # Convert latitude and longitude from degrees to radians
             lat1 = math.radians(node1.x)
@@ -201,25 +174,6 @@ def main():
 
             return distance
 
-        def calculate_cost_normal(node1, node2):
-        # Convert latitude and longitude from degrees to radians
-            lat1 = math.radians(node1.x)
-            lon1 = math.radians(node1.y)
-            lat2 = math.radians(node2.x)
-            lon2 = math.radians(node2.y)
-
-
-            # Radius of the Earth in kilometers
-            radius = 6371
-
-            # Haversine formula
-            dlat = lat2 - lat1
-            dlon = lon2 - lon1
-            a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
-            c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-            distance = radius * c
-
-            return calculate_Normalized_cost(distance,node1,heur[node1.index][node2.index])
 
         def calculate_route_distance(route,start_node):
             #print(type(route[0]))
@@ -242,41 +196,6 @@ def main():
                     total_time+=0.033
             return total_function
 
-
-
-        def a_star(start, goal):
-            open_set = [(start.h, start)]  # Priority queue of nodes to explore
-            came_from = {}  # Dictionary to store the previous node in the optimal path
-            g_score = {node: float('inf') for node in graph.values()}  # Cost from start node to each node
-            g_score[start] = 0
-            f_score = {node: float('inf') for node in graph.values()}  # Estimated total cost from start to goal through each node
-            f_score[start] = start.h
-
-            while open_set:
-                _, current = heappop(open_set)  # Get the node with the lowest f_score
-                #print("inside pq",current.name)
-                if current.name == goal:
-                    # Reconstruct the path
-                    path = [current.name]
-                    #print(cost)
-                    cost=0;
-                    while current in came_from:
-                        prev = came_from[current]
-                        #print('prev',prev.name)
-                        cost += calculate_cost(prev, current)
-                        current = prev
-                        path.append(current.name)
-                    return path[::-1],cost
-
-                for neighbor, cost in current.neighbors:
-                    tentative_g_score = g_score[current] + cost
-                    if tentative_g_score < g_score[neighbor]:
-                        came_from[neighbor] = current
-                        g_score[neighbor] = tentative_g_score
-                        f_score[neighbor] = g_score[neighbor] + heuristic(neighbor,goal)
-                        heappush(open_set, (f_score[neighbor], neighbor))
-
-            return None  # No path found
 
         def a_star_normalized(start, goal):
             open_set = [(start.h, start)]  # Priority queue of nodes to explore
@@ -313,8 +232,6 @@ def main():
                         f_score[neighbor] = g_score[neighbor]
                         heappush(open_set, (f_score[neighbor], neighbor))
             return None  # No path found
-
-        import random
 
         def crossover(parent1, parent2):
             start_node = parent1[0]
@@ -415,22 +332,23 @@ def main():
                 #populationNew.append(start_node)
                 population.append(populationNew)
             for generation in range(generations):
+                #print(generation)
                 population.sort(key=lambda route: calculate_route_time(route, start_node))
                 best_route = population[0]
 
-            new_population = []
+                new_population = []
 
-            for i in range(3, population_size, 2):
-                parent1, parent2 = roulette_wheel_selection(population, start_node)
-                child1, child2 = crossover(parent1, parent2)
-                mutate(child1)
-                mutate(child2)
-                new_population.append(child1)
-                new_population.append(child2)
+                for i in range(3, population_size, 2):
+                    parent1, parent2 = roulette_wheel_selection(population, start_node)
+                    child1, child2 = crossover(parent1, parent2)
+                    mutate(child1)
+                    mutate(child2)
+                    new_population.append(child1)
+                    new_population.append(child2)
 
             # Update the old population with the new one
-            population[3:] = new_population
-            #print(population)
+                population[3:] = new_population
+                #print(population)
 
 
             population.sort(key=lambda route: calculate_route_time(route, start_node))
@@ -459,30 +377,10 @@ def main():
         for i in graph.values():
             for j in graph.values():
                 if i.index>=j.index:
-                    cost=heuristic(i,j.name)
+                    cost=calculate_cost(i,j)
                     heur[i.index][j.index]=cost
                     heur[j.index][i.index]=cost
 
-        max_heur = max(max(row) for row in heur)
-
-        min_heur = min(min(row) for row in heur)
-
-        dummy = [ [0]*rows for i in range(cols)]
-        for i in graph.values():
-            for j in graph.values():
-                if i.index>=j.index:
-                    path,cost=a_star(i,j.name)
-                    dummy[i.index][j.index]=cost
-                    dummy[j.index][i.index]=cost
-            #if i.index==size-1 and j.index==0:
-                #print(path[::-1])
-
-
-        #print("distance matrix without heuristic")
-        #print(dummy)
-        max_value = max(max(row) for row in dummy)
-
-        min_value = min(min(row) for row in dummy)
 
         arr = [ [0]*rows for i in range(cols)]
         time_taken = [ [0]*rows for i in range(cols)]
@@ -502,14 +400,13 @@ def main():
         #print(arr)
         unvisited_nodes.insert(0,start_node);
         unvisited_nodes.append(end_node)
-        #print(unvisited_nodes)
+        print(unvisited_nodes)
         #t1=time.perf_counter()
         tour, tour_length = genetic_algorithm(unvisited_nodes,start_node)
         #t2 = time.perf_counter()
         #print("")
         print("Tour with heuristic cost:")
         #print(tour)
-
         print("")
         #for i in range(len(tour)-1):
         #print("->".join(i for i in subPath[graph[tour[i]].index][graph[tour[i+1]].index][:-1]),end="->")
